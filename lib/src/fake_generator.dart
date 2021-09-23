@@ -1,6 +1,9 @@
 import 'package:analyzer/dart/element/element.dart';
 import 'package:build/build.dart';
+import 'package:fake_factory/src/enums.dart';
 import 'package:fake_factory/src/fakeable.dart';
+import 'package:fake_factory/src/services/helpers.dart';
+import 'package:fake_factory/src/services/parse_utils.dart';
 import 'package:source_gen/source_gen.dart';
 
 import 'model_visitor.dart';
@@ -13,37 +16,59 @@ class FakeGenerator extends GeneratorForAnnotation<Fakeable> {
     element.visitChildren(visitor);
     element.enclosingElement?.visitChildren(visitor);
 
-    assert(visitor.parentFields != null);
+    assert(visitor.factoryElement != null);
+    assert(visitor.dataElement != null);
 
-    final className = visitor.className.replaceFirst('_', '');
+    final factoryClassName = visitor.factoryElement!.name;
+    final dataClassName = visitor.dataElement!.name;
+
+    final factoryFields = visitor.factoryElement!.fields;
+    final dataFields = visitor.dataElement!.fields;
+
+    // Remove '_' from class name.
+    // Example: _UserFactory should become UserFactory
+    final className = factoryClassName.replaceFirst('_', '');
 
     final buffer = StringBuffer();
 
-    buffer.writeln('class $className extends ${visitor.className} {');
+    buffer.writeln('class $className extends $factoryClassName {');
 
-    buffer.writeln('Map<String, dynamic> variables = {};');
+    buffer.writeln('$dataClassName getInstance() {');
 
-    buffer.writeln('$className() {');
-
-    for (final field in visitor.parentFields!.keys) {
-      // print(field);
-      // print(field.runtimeType);
-
-      // remove '_' from private variables
-      final variable =
-          field.startsWith('_') ? field.replaceFirst('_', '') : field;
-
-      buffer.writeln("variables['$variable'] = super.$field;");
+    for (final field in factoryFields) {
+      final value = _getDefaultValue(field);
     }
 
     buffer.writeln('}');
-    doSomethingElse1(visitor, buffer);
-    doSomethingElse2(visitor, buffer);
     buffer.writeln('}');
 
     return buffer.toString();
   }
 
-  void doSomethingElse1(ModelVisitor visitor, StringBuffer buffer) {}
-  void doSomethingElse2(ModelVisitor visitor, StringBuffer buffer) {}
+  /// Get value for annotated field with @FakeField
+  dynamic _getDefaultValue(FieldElement field) {
+    if (field.metadata.isEmpty) return null;
+
+    final anot = field.metadata.first;
+    final obj = anot.computeConstantValue();
+    if (obj == null) return null;
+
+    final cr = ConstantReader(obj);
+
+    final fakeTypeAnotation = cr.read('fakeType');
+    final defaultValueAnotation = cr.read('defaultValue');
+
+    if (!fakeTypeAnotation.isNull) {
+      // print(fakeTypeAnotation.objectValue);
+    }
+
+    if (!defaultValueAnotation.isNull) {
+      print(ParseUtils.literalForObject(defaultValueAnotation.objectValue));
+    }
+
+    // if (defaultValue != null && !defaultValue.isNull) {
+    //   final value = ParseUtils.literalForObject(defaultValue, []);
+    //   // print(value);
+    // }
+  }
 }

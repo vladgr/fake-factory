@@ -2,38 +2,29 @@ import 'package:analyzer/dart/element/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 
 class ModelVisitor extends SimpleElementVisitor<dynamic> {
-  late String className;
-  Map<String, dynamic>? parentFields;
+  ClassElement? factoryElement;
+  ClassElement? dataElement;
 
-  Map<String, dynamic> fields = <String, dynamic>{};
-
+  /// Visits child and parent.
+  /// Example: _UserFactory extends User.
+  /// It visits both: _UserFactory (factory class) and User (data class).
   @override
   dynamic visitClassElement(ClassElement element) {
-    // Parent should not starts with '_
-    if (!element.name.startsWith('_')) {
-      parentFields = {};
+    final isChild = element.name.endsWith('Factory');
 
-      for (final field in element.fields) {
-        parentFields![field.name] = field.type;
-      }
+    if (isChild) {
+      factoryElement = element;
+    } else {
+      dataElement = element;
     }
   }
 
   @override
   dynamic visitConstructorElement(ConstructorElement element) {
-    final elementReturnType = element.type.returnType.toString();
-
-    // DartType ends with '*', which needs to be eliminated
-    // for the generated code to be accurate.
-    className = elementReturnType.replaceFirst('*', '');
+    // final elementReturnType = element.type.returnType.toString();
+    // className = elementReturnType.replaceFirst('*', '');
   }
 
   @override
-  dynamic visitFieldElement(FieldElement element) {
-    final elementType = element.type.toString();
-
-    // DartType ends with '*', which needs to be eliminated
-    // for the generated code to be accurate.
-    fields[element.name] = elementType.replaceFirst('*', '');
-  }
+  dynamic visitFieldElement(FieldElement element) {}
 }
